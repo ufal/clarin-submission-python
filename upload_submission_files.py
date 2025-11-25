@@ -18,7 +18,7 @@ from rest_client.submission_client import SubmissionClient
 # Parse command-line arguments
 parser = argparse.ArgumentParser(description="Command-line arguments")
 parser.add_argument("-s", "--submission-id", required = True, help="submission ID (required)")
-parser.add_argument("-f", "--files", nargs="+", required = True, help="Files to upload (required")
+parser.add_argument("-f", "--files", nargs="+", required = True, help="Files to upload (required)")
 parser.add_argument("-t", "--token",
                     help="Authorization token (optional), r use the AUTHORIZATION_TOKEN env variable")
 parser.add_argument("-e", "--dspace-api-endpoint",

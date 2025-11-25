@@ -9,6 +9,7 @@ import argparse
 import os
 
 from rest_client.submission_client import SubmissionClient
+from rest_client.submission_client import handle_failed_response
 
 # Example system variables needed for authentication and submission upload
 # (all of these variables can be overwritten with command line arguments)
@@ -20,6 +21,9 @@ from rest_client.submission_client import SubmissionClient
 parser = argparse.ArgumentParser(description="Command-line arguments")
 parser.add_argument("-m", "--submission-metadata",
                     help="Submission metadata file name, in CSV format (optional). Default: submission.csv")
+parser.add_argument("-s", "--submission-id", help="submission ID (optional),"
+                                                  " if provided, metadata + files will be uploaded to this submission")
+parser.add_argument("-f", "--files", nargs="+", help="Files to upload (optional)")
 parser.add_argument("-t", "--token",
                     help="Authorization token, or use the AUTHORIZATION_TOKEN env variable")
 parser.add_argument("-e", "--dspace-api-endpoint",
@@ -31,6 +35,9 @@ args = parser.parse_args()
 SUBMISSION_METADATA = 'submission.csv'
 if args.submission_metadata:
     SUBMISSION_METADATA = args.submission_metadata
+
+FILES = args.files or []
+SUBMISSION_ID = args.submission_id
 
 AUTHORIZATION_TOKEN = None
 if args.token:
@@ -70,16 +77,28 @@ if not authenticated:
 
 # for now, only CSV files are supported
 if FILE_TYPE == 'csv':
-    submissionResponse = d.create_submission_from_csv(DSPACE_COLLECTION_ID, SUBMISSION_METADATA)
-    if submissionResponse is not None:
-        if submissionResponse.status_code == 201:
-            print(f'Submission \"{submissionResponse.json()["_embedded"]["item"]["name"]}\" '
-                  f'with id {submissionResponse.json()["id"]} created successfully.')
+    if not SUBMISSION_ID:
+        submission_response = d.create_submission_from_csv(DSPACE_COLLECTION_ID, SUBMISSION_METADATA)
+        if submission_response is not None:
+            if submission_response.status_code == 201:
+                submission_id = submission_response.json()['id']
+                submission_name = submission_response.json()['_embedded']['item']['name'] or "Untitled"
+                print(f'Submission \"{submission_name}\" with id {submission_id} created successfully.')
+                if len(FILES) > 0:
+                    d.upload_file_to_workspace_item(submission_id, FILES)
+            else:
+                handle_failed_response("Submission create", submission_response)
+    else:
+        payload = d.parse_submission_payload_csv(SUBMISSION_METADATA)
+        if len(payload) > 0:
+            submission_response = d.patch_metadata(SUBMISSION_ID, payload)
+            if submission_response is not None:
+                if submission_response.status_code == 200:
+                    submission_name = submission_response.json()['_embedded']['item']['name'] or "Untitled"
+                    print(f'Submission \"{submission_name}\" with id {SUBMISSION_ID} updated successfully.')
+                else:
+                    handle_failed_response("Submission update", submission_response)
         else:
-            print(f'Submission creation failed with status code {submissionResponse.status_code}')
-            if submissionResponse.request and submissionResponse.request.method:
-                print(f'Method: {submissionResponse.request.method}')
-            if submissionResponse.url:
-                print(f'Request URL: {submissionResponse.url}')
-            if submissionResponse.text:
-                print(f'Reason: {submissionResponse.text}')
+            print("No metadata found in csv file.")
+        if len(FILES) > 0:
+            d.upload_file_to_workspace_item(SUBMISSION_ID, FILES)

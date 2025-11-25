@@ -3,8 +3,6 @@ from enum import Enum
 import logging
 import csv
 import os
-# from requests import requests
-import requests
 from requests import Request
 from requests import Response
 
@@ -21,6 +19,15 @@ class PatchOperation(Enum):
     REMOVE = 'remove'
     REPLACE = 'replace'
     MOVE = 'move'
+
+def handle_failed_response(operation_name, response: Response):
+    print(f"{operation_name} failed with status code {response.status_code}")
+    if response.request and response.request.method:
+        print(f"Method: {response.request.method}")
+    if response.url:
+        print(f"Request URL: {response.url}")
+    if response.text:
+        print(f"Reason: {response.text}")
 
 class SubmissionClient:
     def __init__(self, api_endpoint = API_ENDPOINT, authorization_token = AUTHORIZATION_TOKEN):
@@ -59,21 +66,14 @@ class SubmissionClient:
 
     def create_submission_from_csv(self, parent, csv_file_path):
         payload = self.parse_submission_payload_csv(csv_file_path)
-        if len(payload) > 0:
-            return self.create_submission_from_payload(parent, payload)
-        else:
-            the_response = Response()
-            the_response.status_code = 400
-            the_response._content = b'{ "error" : 400, "message" : "No metadata found in csv file" }'
-            the_response.url = self.api_endpoint + '/submission/workspaceitems?owningCollection=' + parent
-            return the_response
+        return self.create_submission_from_payload(parent, payload)
 
     def create_submission_from_payload(self, parent, payload):
         create_response = self.create_submission(parent)
         if create_response.status_code == 201:
             workspace_item_id = create_response.json()['id']
             patch_response =  self.patch_metadata(workspace_item_id, payload)
-            if patch_response.status_code == 200:
+            if patch_response is not None and patch_response.status_code == 200:
                 patch_response.status_code = 201
                 return patch_response
 
@@ -88,6 +88,7 @@ class SubmissionClient:
             _logger.error('Input data should be in the form of the list of operations')
             return None
 
+        print("Patch operations:")
         for operation in data:
             print(operation)
             path = operation['path'] if 'path' in operation else None
@@ -118,7 +119,7 @@ class SubmissionClient:
 
         if r.status_code == 200:
             # 200 Success
-            _logger.info(f'successful patch update to {r.json()["type"]} {r.json()["id"]}')
+            _logger.info(f'Successful patch update to {r.json()["type"]} {r.json()["id"]}')
         else:
             _logger.error(r.text)
         # Return the raw API response
@@ -157,7 +158,6 @@ class SubmissionClient:
 
             for key in operation_map:
                 operations.append(operation_map[key])
-        print(f'Submission payload:\n{operations}')
         return operations
 
     def get_submission_form_names(self, submission_definition_id):
