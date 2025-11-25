@@ -3,31 +3,38 @@
 # and described in the LICENCE file in the root of this project
 
 """
-Python 3 application for Submission Template Generation, using the dspace.py API client library.
+Python 3 application for uploading submission files, using the dspace.py API client library.
 """
 import argparse
 import os
 
 from rest_client.submission_client import SubmissionClient
 
-# Example system variables needed for authentication and submission template generation
+# Example system variables needed for authentication and submission files upload
 # (all of these variables can be overwritten with command line arguments)
 # AUTHORIZATION_TOKEN=
 # DSPACE_API_ENDPOINT=
-# SUBMISSION_DEFINITION_NAME=
 
 # Parse command-line arguments
 parser = argparse.ArgumentParser(description="Command-line arguments")
-parser.add_argument("filename", help="CSV template file name")
+parser.add_argument("-s", "--submission-id", required = True, help="submission ID (required)")
+parser.add_argument("-f", "--files", nargs="+", required = True, help="Files to upload (required")
 parser.add_argument("-t", "--token", help="Authorization token (optional), "
-                    "or use the AUTHORIZATION_TOKEN env variable")
+                                "or use the AUTHORIZATION_TOKEN env variable")
 parser.add_argument("-e", "--dspace-api-endpoint", help="DSpace API Endpoint (optional), "
-                    "or use the DSPACE_API_ENDPOINT env variable")
-parser.add_argument("-s", "--submission-definition-name", help="Submission Definition Name(optional), "
-                    "or use the SUBMISSION_DEFINITION_NAME env variable")
-parser.add_argument("-r", "--resource-type", help="Resource Type (optional), "
-                    "sample values: corpus (default), lexicalConceptualResource, languageDescription, toolService")
+                                                        "or use the DSPACE_API_ENDPOINT env variable")
 args = parser.parse_args()
+
+SUBMISSION_ID = args.submission_id
+FILES = args.files
+
+if SUBMISSION_ID is None:
+    print('No submission-id parameter provided!')
+    exit(1)
+
+if FILES is None:
+    print('No files parameter provided!')
+    exit(1)
 
 AUTHORIZATION_TOKEN = None
 if args.token:
@@ -39,23 +46,11 @@ if AUTHORIZATION_TOKEN is None:
     print('No authorization token provided!')
     exit(1)
 
-SUBMISSION_DEFINITION_NAME = 'traditional'
-if args.submission_definition_name:
-    SUBMISSION_DEFINITION_NAME = args.submission_definition_name
-elif 'SUBMISSION_DEFINITION_NAME' in os.environ:
-    SUBMISSION_DEFINITION_NAME = os.environ['SUBMISSION_DEFINITION_NAME']
-
 API_ENDPOINT = 'http://localhost:8080/server/api'
 if args.dspace_api_endpoint:
     API_ENDPOINT = args.dspace_api_endpoint
 elif 'DSPACE_API_ENDPOINT' in os.environ:
     API_ENDPOINT = os.environ['DSPACE_API_ENDPOINT']
-
-RESOURCE_TYPE = 'corpus'
-if args.resource_type:
-    RESOURCE_TYPE = args.resource_type
-
-FILE_TYPE = 'csv'
 
 d = SubmissionClient(api_endpoint=API_ENDPOINT, authorization_token=AUTHORIZATION_TOKEN)
 
@@ -65,6 +60,4 @@ if not authenticated:
     print('Error logging in! Giving up.')
     exit(1)
 
-# for now, only CSV templates are generated
-if FILE_TYPE == 'csv':
-    d.generateCsvTemplate(args.filename, SUBMISSION_DEFINITION_NAME, RESOURCE_TYPE)
+d.upload_file_to_workspace_item(SUBMISSION_ID, args.files)

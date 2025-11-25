@@ -27,10 +27,6 @@ parser.add_argument("-c", "--collection-id", help="DSpace Collection ID (optiona
                                                   "or use the DSPACE_COLLECTION_ID env variable")
 args = parser.parse_args()
 
-if not os.path.exists(args.filename):
-    print(f'File \"{args.filename}\" does not exist!')
-    exit(1)
-
 AUTHORIZATION_TOKEN = None
 if args.token:
     AUTHORIZATION_TOKEN = args.token

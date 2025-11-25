@@ -2,6 +2,10 @@ from dspace_rest_client.client import DSpaceClient
 from enum import Enum
 import logging
 import csv
+import os
+# from requests import requests
+import requests
+from requests import Request
 from requests import Response
 
 __all__ = ['SubmissionClient']
@@ -170,7 +174,7 @@ class SubmissionClient:
 
         return None
 
-    def generateCsvTemplate(self, csv_file_name, submission_definition_name):
+    def generateCsvTemplate(self, csv_file_name, submission_definition_name, resource_type):
         submission_form_names = self.get_submission_form_names(submission_definition_name)
         if submission_form_names is not None and len(submission_form_names) > 0:
             csv_lines = []
@@ -186,11 +190,17 @@ class SubmissionClient:
                             fields = row.get('fields', [])
                             if len(fields) > 0:
                                 for field in fields:
-                                    selectableMetadata = field.get("selectableMetadata", [])
-                                    if len(selectableMetadata) > 0:
-                                        metadata_field = selectableMetadata[0]["metadata"]
-                                        if metadata_field is not None:
-                                            csv_lines.append([metadata_field,''])
+                                    type_bind = field.get("typeBind", [])
+                                    # check if the resource_type is in the typeBind list
+                                    if len(type_bind) == 0 or resource_type in type_bind:
+                                        selectable_metadata = field.get("selectableMetadata", [])
+                                        if len(selectable_metadata) > 0:
+                                            metadata_field = selectable_metadata[0]["metadata"]
+                                            if metadata_field is not None:
+                                                if metadata_field == 'dc.type':
+                                                    csv_lines.append([metadata_field,resource_type])
+                                                else:
+                                                    csv_lines.append([metadata_field,''])
 
             if len(csv_lines) > 0:
                 with open(csv_file_name, 'w', newline='') as file:
@@ -201,3 +211,18 @@ class SubmissionClient:
                          f'written to: "{csv_file_name}"')
         else:
             _logger.error(f'No submission forms found for submission definition name: "{submission_definition_name}"')
+
+    def upload_file_to_workspace_item(self, workspace_item_id, file_paths):
+        url = f'{self.api_endpoint}/submission/workspaceitems/{workspace_item_id}'
+        for file_path in file_paths:
+            # the API only allows to upload one file per request
+            file = (os.path.basename(file_path), open(file_path, 'rb'))
+            files = {'file': file}
+            req = Request('POST', url, files = files)
+            prepared_req = self.dspaceClient.session.prepare_request(req)
+            r = self.dspaceClient.session.send(prepared_req)
+            if r.status_code == 201:
+                # 201 Created - success!
+                print(f'File "{file_path}" uploaded successfully to workspace item {workspace_item_id}')
+            else:
+                print(f'File upload for "{file_path}" failed: {r.status_code}: {r.text} ({url})')
