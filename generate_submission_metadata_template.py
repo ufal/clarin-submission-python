@@ -18,16 +18,22 @@ from rest_client.submission_client import SubmissionClient
 
 # Parse command-line arguments
 parser = argparse.ArgumentParser(description="Command-line arguments")
-parser.add_argument("filename", help="CSV template file name")
-parser.add_argument("-t", "--token", help="Authorization token (optional), "
-                    "or use the AUTHORIZATION_TOKEN env variable")
-parser.add_argument("-e", "--dspace-api-endpoint", help="DSpace API Endpoint (optional), "
-                    "or use the DSPACE_API_ENDPOINT env variable")
-parser.add_argument("-s", "--submission-definition-name", help="Submission Definition Name(optional), "
-                    "or use the SUBMISSION_DEFINITION_NAME env variable")
-parser.add_argument("-r", "--resource-type", help="Resource Type (optional), "
-                    "sample values: corpus (default), lexicalConceptualResource, languageDescription, toolService")
+parser.add_argument("-m", "--submission-metadata",
+                    help="Template name for submission metadata, in CSV format (optional). Default: submission.csv")
+parser.add_argument("-t", "--token",
+                    help="Authorization token, or use the AUTHORIZATION_TOKEN env variable")
+parser.add_argument("-e", "--dspace-api-endpoint",
+                    help="DSpace API Endpoint, or use the DSPACE_API_ENDPOINT env variable")
+parser.add_argument("-s", "--submission-definition-name",
+                    help="Submission Definition Name, or use the SUBMISSION_DEFINITION_NAME env variable")
+parser.add_argument("-r", "--resource-type",
+                    help="Resource Type (optional), "
+                         "sample values: corpus (default), lexicalConceptualResource, languageDescription, toolService")
 args = parser.parse_args()
+
+SUBMISSION_METADATA = 'submission.csv'
+if args.submission_metadata:
+    SUBMISSION_METADATA = args.submission_metadata
 
 AUTHORIZATION_TOKEN = None
 if args.token:
@@ -39,11 +45,16 @@ if AUTHORIZATION_TOKEN is None:
     print('No authorization token provided!')
     exit(1)
 
-SUBMISSION_DEFINITION_NAME = 'traditional'
+# SUBMISSION_DEFINITION_NAME = traditional
+SUBMISSION_DEFINITION_NAME = None
 if args.submission_definition_name:
     SUBMISSION_DEFINITION_NAME = args.submission_definition_name
 elif 'SUBMISSION_DEFINITION_NAME' in os.environ:
     SUBMISSION_DEFINITION_NAME = os.environ['SUBMISSION_DEFINITION_NAME']
+
+if SUBMISSION_DEFINITION_NAME is None:
+    print('No submission definition name provided!')
+    exit(1)
 
 API_ENDPOINT = 'http://localhost:8080/server/api'
 if args.dspace_api_endpoint:
@@ -67,4 +78,4 @@ if not authenticated:
 
 # for now, only CSV templates are generated
 if FILE_TYPE == 'csv':
-    d.generateCsvTemplate(args.filename, SUBMISSION_DEFINITION_NAME, RESOURCE_TYPE)
+    d.generateCsvTemplate(SUBMISSION_METADATA, SUBMISSION_DEFINITION_NAME, RESOURCE_TYPE)

@@ -19,10 +19,10 @@ from rest_client.submission_client import SubmissionClient
 parser = argparse.ArgumentParser(description="Command-line arguments")
 parser.add_argument("-s", "--submission-id", required = True, help="submission ID (required)")
 parser.add_argument("-f", "--files", nargs="+", required = True, help="Files to upload (required")
-parser.add_argument("-t", "--token", help="Authorization token (optional), "
-                                "or use the AUTHORIZATION_TOKEN env variable")
-parser.add_argument("-e", "--dspace-api-endpoint", help="DSpace API Endpoint (optional), "
-                                                        "or use the DSPACE_API_ENDPOINT env variable")
+parser.add_argument("-t", "--token",
+                    help="Authorization token (optional), r use the AUTHORIZATION_TOKEN env variable")
+parser.add_argument("-e", "--dspace-api-endpoint",
+                    help="DSpace API Endpoint (optional), or use the DSPACE_API_ENDPOINT env variable")
 args = parser.parse_args()
 
 SUBMISSION_ID = args.submission_id
@@ -60,4 +60,4 @@ if not authenticated:
     print('Error logging in! Giving up.')
     exit(1)
 
-d.upload_file_to_workspace_item(SUBMISSION_ID, args.files)
+d.upload_file_to_workspace_item(SUBMISSION_ID, FILES)

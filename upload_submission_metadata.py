@@ -18,14 +18,19 @@ from rest_client.submission_client import SubmissionClient
 
 # Parse command-line arguments
 parser = argparse.ArgumentParser(description="Command-line arguments")
-parser.add_argument("filename", help="CSV file name")
-parser.add_argument("-t", "--token", help="Authorization token (optional), "
-                                "or use the AUTHORIZATION_TOKEN env variable")
-parser.add_argument("-e", "--dspace-api-endpoint", help="DSpace API Endpoint (optional), "
-                                                        "or use the DSPACE_API_ENDPOINT env variable")
-parser.add_argument("-c", "--collection-id", help="DSpace Collection ID (optional), "
-                                                  "or use the DSPACE_COLLECTION_ID env variable")
+parser.add_argument("-m", "--submission-metadata",
+                    help="Submission metadata file name, in CSV format (optional). Default: submission.csv")
+parser.add_argument("-t", "--token",
+                    help="Authorization token, or use the AUTHORIZATION_TOKEN env variable")
+parser.add_argument("-e", "--dspace-api-endpoint",
+                    help="DSpace API, or use the DSPACE_API_ENDPOINT env variable")
+parser.add_argument("-c", "--collection-id",
+                    help="DSpace Collection ID, or use the DSPACE_COLLECTION_ID env variable")
 args = parser.parse_args()
+
+SUBMISSION_METADATA = 'submission.csv'
+if args.submission_metadata:
+    SUBMISSION_METADATA = args.submission_metadata
 
 AUTHORIZATION_TOKEN = None
 if args.token:
@@ -65,7 +70,7 @@ if not authenticated:
 
 # for now, only CSV files are supported
 if FILE_TYPE == 'csv':
-    submissionResponse = d.create_submission_from_csv(DSPACE_COLLECTION_ID, args.filename)
+    submissionResponse = d.create_submission_from_csv(DSPACE_COLLECTION_ID, SUBMISSION_METADATA)
     if submissionResponse is not None:
         if submissionResponse.status_code == 201:
             print(f'Submission \"{submissionResponse.json()["_embedded"]["item"]["name"]}\" '
