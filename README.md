@@ -82,13 +82,13 @@ __section__,specialFields
 local.submission.note,
 dc.relation.replaces,
 </pre>
-Note, in this case, only the following metadata values are defined: <b>dc.type, dc.title and dc.contributor.author</b> where<br>
-<b>dc.type</b> single value is automatically defined during metadata template file generation<br>
+Note, here, only the following metadata values are defined: <b>dc.type, dc.title and dc.contributor.author</b> where<br>
+<b>dc.type</b> (single) value is automatically defined during metadata template file generation<br>
 <b>dc.title</b> (single) value is defined by user<br>
 <b>dc.contributor.author</b> (list) values are defined by user</br>
 
 So, this way user may define any number of metadata values, where each metadata value can be set as a single value or a list of values.<br>
-The <b>\_\_section\_\_</b> values define the individual submission sections, where the metadata belong to
+The <b>\_\_section\_\_</b> lines define the individual submission sections, where the metadata belong to
 
 ## Submission Metadata + Files Upload (metadata in CSV format)
 
@@ -162,4 +162,4 @@ Example:
 python upload_submission_files.py -s 7401 -f new-logo.png examples.zip
 </pre>
 
-In this case two files (bitstreams): <b>new-logo.png</b> and <b>examples.zip</b> will be uploaded to submission 7401.
+In this case two files (bitstreams): <b>new-logo.png</b> and <b>examples.zip</b> will be uploaded to existing submission with ID 7401.
