@@ -90,3 +90,76 @@ Note, in this case, only the following metadata values are defined: <b>dc.type, 
 So, this way user may define any number of metadata values, where each metadata value can be set as a single value or a list of values.<br>
 The <b>\_\_section\_\_</b> values define the individual submission sections, where the metadata belong to
 
+## Submission Metadata + Files Upload (metadata in CSV format)
+
+<pre>
+python upload_submission.py [-h] [-m SUBMISSION_METADATA] [-s SUBMISSION_ID]
+                            [-f FILES [FILES ...]] [-t TOKEN]
+                            [-e DSPACE_API_ENDPOINT] [-c COLLECTION_ID]
+
+Command-line arguments
+
+options:
+  -h, --help            show this help message and exit
+  -m, --submission-metadata SUBMISSION_METADATA
+                        Submission metadata file name, in CSV format
+                        (optional). Default: submission.csv
+  -s, --submission-id SUBMISSION_ID
+                        submission ID (optional), if provided, metadata +
+                        files will be uploaded to this submission
+  -f, --files FILES [FILES ...]
+                        Files to upload (optional)
+  -t, --token TOKEN     Authorization token, or use the AUTHORIZATION_TOKEN
+                        env variable
+  -e, --dspace-api-endpoint DSPACE_API_ENDPOINT
+                        DSpace API, or use the DSPACE_API_ENDPOINT env
+                        variable
+  -c, --collection-id COLLECTION_ID
+                        DSpace Collection ID, or use the DSPACE_COLLECTION_ID
+                        env variable
+</pre>
+
+Example 1:
+<pre>
+python upload_submission.py -m /User/John/Submissions/submission-data.csv -f articles.zip sample-video.mp4 logo.png
+</pre>
+
+In this case new submission will be created with metadata defined in <b>submission-data.csv</b> file and 
+3 files (bitstreams): <b>articles.zip, sample-video.mp4, logo.png</b> will be uploaded to created submission.
+
+Example 2:
+<pre>
+python upload_submission.py -s 7401 -m /User/John/Submissions/new-submission-data.csv -f new-video.mp4
+</pre>
+
+In this case existing submission with ID 7401 will be updated with metadata defined in <b>new-submission-data.csv</b> 
+file and one video file: <b>new-video.mp4</b> will be uploaded to this submission.
+
+## Submission File(s) upload
+
+<pre>
+python upload_submission_files.py [-h] -s SUBMISSION_ID -f FILES [FILES ...]
+                                  [-t TOKEN] [-e DSPACE_API_ENDPOINT]
+
+Command-line arguments
+
+options:
+  -h, --help            show this help message and exit
+  -s, --submission-id SUBMISSION_ID
+                        submission ID (required)
+  -f, --files FILES [FILES ...]
+                        Files to upload (required)
+  -t, --token TOKEN     Authorization token (optional), r use the
+                        AUTHORIZATION_TOKEN env variable
+  -e, --dspace-api-endpoint DSPACE_API_ENDPOINT
+                        DSpace API Endpoint (optional), or use the
+                        DSPACE_API_ENDPOINT env variable
+</pre>
+
+
+Example:
+<pre>
+python upload_submission_files.py -s 7401 -f new-logo.png examples.zip
+</pre>
+
+In this case two files (bitstreams): <b>new-logo.png</b> and <b>examples.zip</b> will be uploaded to submission 7401.
