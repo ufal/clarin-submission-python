@@ -78,4 +78,4 @@ if not authenticated:
 
 # for now, only CSV templates are generated
 if FILE_TYPE == 'csv':
-    d.generateCsvTemplate(SUBMISSION_METADATA, SUBMISSION_DEFINITION_NAME, RESOURCE_TYPE)
+    d.generate_csv_template(SUBMISSION_METADATA, SUBMISSION_DEFINITION_NAME, RESOURCE_TYPE)

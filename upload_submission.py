@@ -8,8 +8,7 @@ Python 3 application for Submission Upload, using the dspace.py API client libra
 import argparse
 import os
 
-from rest_client.submission_client import SubmissionClient
-from rest_client.submission_client import handle_failed_response
+from rest_client.submission_client import SubmissionClient, handle_failed_response, parse_submission_payload_csv
 
 # Example system variables needed for authentication and submission upload
 # (all of these variables can be overwritten with command line arguments)
@@ -89,7 +88,7 @@ if FILE_TYPE == 'csv':
             else:
                 handle_failed_response("Submission create", submission_response)
     else:
-        payload = d.parse_submission_payload_csv(SUBMISSION_METADATA)
+        payload = parse_submission_payload_csv(SUBMISSION_METADATA)
         if len(payload) > 0:
             submission_response = d.patch_metadata(SUBMISSION_ID, payload)
             if submission_response is not None:

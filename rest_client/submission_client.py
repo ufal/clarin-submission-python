@@ -6,7 +6,7 @@ import os
 from requests import Request
 from requests import Response
 
-__all__ = ['SubmissionClient']
+__all__ = ['SubmissionClient', 'handle_failed_response', 'parse_submission_payload_csv']
 
 logging.basicConfig(format='%(asctime)s - %(message)s', level=logging.INFO)
 _logger = logging.getLogger('clarin.dspace')
@@ -29,6 +29,42 @@ def handle_failed_response(operation_name, response: Response):
     if response.text:
         print(f"Reason: {response.text}")
 
+
+def parse_submission_payload_csv(file_path):
+    operations = []
+    with open(file_path, 'r') as file:
+        reader = csv.reader(file)
+        section_path = ''
+        operation_map = {}
+        for row in reader:
+            print(row)
+            if row[0] == '__section__':
+                section_path = '/sections/' + row[1]
+            elif len(row) > 1 and row[1] is not None and row[1] != '':
+                path = section_path + '/' + row[0]
+                if operation_map.get(path) is None:
+                    value = []
+                    for num in range(1, len(row)):
+                        value.append({
+                            'value': row[num]
+                        })
+                    operation = {
+                        'op': 'add',
+                        'path': path,
+                        'value': value
+                    }
+                    operation_map[path] = operation
+                else:
+                    operation = operation_map.get(path)
+                    for num in range(1, len(row)):
+                        operation['value'].append({
+                            'value': row[num]
+                        })
+
+        for key in operation_map:
+            operations.append(operation_map[key])
+    return operations
+
 class SubmissionClient:
     def __init__(self, api_endpoint = API_ENDPOINT, authorization_token = AUTHORIZATION_TOKEN):
         self.authorization_token = authorization_token
@@ -42,12 +78,6 @@ class SubmissionClient:
             print('No authorization token provided!')
             return False
         return self.dspaceClient.authenticate()
-
-    def create_community(self, parent, data):
-        return self.dspaceClient.create_community(parent, data)
-
-    def get_item(self, uuid):
-        return self.dspaceClient.get_item(uuid)
 
     def create_submission(self, parent):
         url = f'{self.api_endpoint}/submission/workspaceitems'
@@ -65,10 +95,10 @@ class SubmissionClient:
         return r
 
     def create_submission_from_csv(self, parent, csv_file_path):
-        payload = self.parse_submission_payload_csv(csv_file_path)
-        return self.create_submission_from_payload(parent, payload)
+        payload = parse_submission_payload_csv(csv_file_path)
+        return self._create_submission_from_payload(parent, payload)
 
-    def create_submission_from_payload(self, parent, payload):
+    def _create_submission_from_payload(self, parent, payload):
         create_response = self.create_submission(parent)
         if create_response.status_code == 201:
             workspace_item_id = create_response.json()['id']
@@ -125,57 +155,8 @@ class SubmissionClient:
         # Return the raw API response
         return r
 
-    def parse_submission_payload_csv(self, file_path):
-        operations = []
-        with open(file_path, 'r') as file:
-            reader = csv.reader(file)
-            section_path = ''
-            operation_map = {}
-            for row in reader:
-                print(row)
-                if row[0] == '__section__':
-                    section_path = '/sections/' + row[1]
-                elif len(row) > 1 and row[1] is not None and row[1] != '':
-                    path = section_path + '/' + row[0]
-                    if operation_map.get(path) is None:
-                        value = []
-                        for num in range(1, len(row)):
-                            value.append({
-                                'value': row[num]
-                            })
-                        operation = {
-                            'op': 'add',
-                            'path': path,
-                            'value': value
-                        }
-                        operation_map[path] = operation
-                    else:
-                        operation = operation_map.get(path)
-                        for num in range(1, len(row)):
-                            operation['value'].append({
-                                'value': row[num]
-                            })
-
-            for key in operation_map:
-                operations.append(operation_map[key])
-        return operations
-
-    def get_submission_form_names(self, submission_definition_id):
-        url = f'{self.api_endpoint}/config/submissiondefinitions/{submission_definition_id}?embed=sections'
-        r = self.dspaceClient.session.get(url, headers=self.dspaceClient.request_headers)
-        if r is not None and r.status_code == 200:
-            _logger.info(f'successful retrieval of submission definition {submission_definition_id}')
-            form_names = []
-            sections = r.json().get('_embedded', {}).get('sections', {}).get('_embedded', {}).get('sections', [])
-            for section in sections:
-                if section.get('sectionType') == 'submission-form':
-                    form_names.append(section.get('id'))
-            return form_names
-
-        return None
-
-    def generateCsvTemplate(self, csv_file_name, submission_definition_name, resource_type):
-        submission_form_names = self.get_submission_form_names(submission_definition_name)
+    def generate_csv_template(self, csv_file_name, submission_definition_name, resource_type):
+        submission_form_names = self._get_submission_form_names(submission_definition_name)
         if submission_form_names is not None and len(submission_form_names) > 0:
             csv_lines = []
             for form_name in submission_form_names:
@@ -212,13 +193,26 @@ class SubmissionClient:
         else:
             _logger.error(f'No submission forms found for submission definition name: "{submission_definition_name}"')
 
+    def _get_submission_form_names(self, submission_definition_id):
+        url = f'{self.api_endpoint}/config/submissiondefinitions/{submission_definition_id}?embed=sections'
+        r = self.dspaceClient.session.get(url, headers=self.dspaceClient.request_headers)
+        if r is not None and r.status_code == 200:
+            _logger.info(f'successful retrieval of submission definition {submission_definition_id}')
+            form_names = []
+            sections = r.json().get('_embedded', {}).get('sections', {}).get('_embedded', {}).get('sections', [])
+            for section in sections:
+                if section.get('sectionType') == 'submission-form':
+                    form_names.append(section.get('id'))
+            return form_names
+
+        return None
+
     def upload_file_to_workspace_item(self, workspace_item_id, file_paths):
         url = f'{self.api_endpoint}/submission/workspaceitems/{workspace_item_id}'
         for file_path in file_paths:
             # the API only allows to upload one file per request
             file = (os.path.basename(file_path), open(file_path, 'rb'))
-            files = {'file': file}
-            req = Request('POST', url, files = files)
+            req = Request('POST', url, files = {'file': file})
             prepared_req = self.dspaceClient.session.prepare_request(req)
             r = self.dspaceClient.session.send(prepared_req)
             if r.status_code == 201:
