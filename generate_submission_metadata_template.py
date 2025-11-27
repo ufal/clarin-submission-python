@@ -24,7 +24,7 @@ parser.add_argument("-t", "--token",
                     help="Authorization token, or use the AUTHORIZATION_TOKEN env variable")
 parser.add_argument("-e", "--dspace-api-endpoint",
                     help="DSpace API Endpoint, or use the DSPACE_API_ENDPOINT env variable")
-parser.add_argument("-s", "--submission-definition-name",
+parser.add_argument("-d", "--submission-definition-name",
                     help="Submission Definition Name, or use the SUBMISSION_DEFINITION_NAME env variable")
 parser.add_argument("-r", "--resource-type",
                     help="Resource Type (optional), "
