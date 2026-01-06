@@ -3,6 +3,7 @@ from enum import Enum
 import logging
 import csv
 import os
+import json
 from requests import Request
 from requests import Response
 
@@ -37,11 +38,36 @@ def parse_submission_payload_csv(file_path):
         section_path = ''
         operation_map = {}
         for row in reader:
+            if len(row) == 0:
+                print('')
+                continue
             print(row)
             if row[0] == '__section__':
                 section_path = '/sections/' + row[1]
             elif len(row) > 1 and row[1] is not None and row[1] != '':
-                path = section_path + '/' + row[0]
+                metadata_key = row[0].split("[")[0]
+                path = section_path + '/' + metadata_key
+                if path == "/sections/license/granted":
+                    # special handling for license granted field
+                    operation = {
+                        'op': 'add',
+                        'path': path,
+                        'value': row[1]
+                    }
+                    operation_map[path] = operation
+                    continue
+                if path == "/sections/clarin-license/__enum_value__":
+                    # special handling for clarin-license enum value
+                    continue
+                if path == "/sections/clarin-license/name":
+                    # special handling for clarin-license
+                    operation = {
+                        'op': 'replace',
+                        'path': '/license',
+                        'value': row[1]
+                    }
+                    operation_map["/license"] = operation
+                    continue
                 if operation_map.get(path) is None:
                     value = []
                     for num in range(1, len(row)):
@@ -134,7 +160,7 @@ class SubmissionClient:
                 # missing value required for add/replace/move operations
                 _logger.error('Missing required "value" argument for add/replace/move operations')
                 return None
-            if op == PatchOperation.REPLACE.value and not isinstance(value, dict):
+            if op == PatchOperation.REPLACE.value and path != '/license' and not isinstance(value, dict):
                 # value should be object in replace operation
                 _logger.error('Invalid value format for replace operation - should be object')
                 return None
@@ -159,6 +185,7 @@ class SubmissionClient:
         submission_form_names = self._get_submission_form_names(submission_definition_name)
         if submission_form_names is not None and len(submission_form_names) > 0:
             csv_lines = []
+            first_section = True
             for form_name in submission_form_names:
                 url = f'{self.api_endpoint}/config/submissionforms/{form_name}'
                 r = self.dspaceClient.session.get(url, headers=self.dspaceClient.request_headers)
@@ -166,6 +193,11 @@ class SubmissionClient:
                     _logger.info(f'successful retrieval of submission form {form_name}')
                     rows = r.json().get('rows', [])
                     if len(rows) > 0:
+                        if not first_section:
+                            csv_lines.append([])  # add an empty line between sections
+                        else:
+                            first_section = False
+
                         csv_lines.append(['__section__', form_name])
                         for row in rows:
                             fields = row.get('fields', [])
@@ -176,12 +208,27 @@ class SubmissionClient:
                                     if len(type_bind) == 0 or resource_type in type_bind:
                                         selectable_metadata = field.get("selectableMetadata", [])
                                         if len(selectable_metadata) > 0:
-                                            metadata_field = selectable_metadata[0]["metadata"]
-                                            if metadata_field is not None:
-                                                if metadata_field == 'dc.type':
-                                                    csv_lines.append([metadata_field,resource_type])
+                                            metadata_key = selectable_metadata[0].get("metadata")
+                                            controlled_vocabulary = field.get("selectableMetadata")[0].get("controlledVocabulary", "")
+                                            value_format = self._get_format(field, controlled_vocabulary )
+                                            if metadata_key is not None:
+                                                if metadata_key == 'dc.type': # special handling for dc.type field
+                                                    csv_lines.append([metadata_key + value_format, resource_type])
                                                 else:
-                                                    csv_lines.append([metadata_field,''])
+                                                    csv_lines.append([metadata_key + value_format, ''])
+
+            csv_lines.append([]) # empty line
+            csv_lines.append(['__section__', 'license'])
+            csv_lines.append(['granted[required=true type=boolean]', 'true'])
+
+            clarin_licenses = self._get_clarin_licenses()
+            if len(clarin_licenses) > 0:
+                csv_lines.append([]) # empty line
+                csv_lines.append(['__section__', 'clarin-license'])
+                for clarin_license in clarin_licenses:
+                    csv_lines.append(['__enum_value__', clarin_license])
+                # populate clarin-license name with the first license as default
+                csv_lines.append(['name[type=enum]', clarin_licenses[0]])
 
             if len(csv_lines) > 0:
                 with open(csv_file_name, 'w', newline='') as file:
@@ -220,3 +267,96 @@ class SubmissionClient:
                 print(f'File "{file_path}" uploaded successfully to workspace item {workspace_item_id}')
             else:
                 print(f'File upload for "{file_path}" failed: {r.status_code}: {r.text} ({url})')
+
+    def _get_format(self, field, controlled_vocabulary):
+        format = "["
+
+        required = field.get("mandatory", False)
+        if required:
+            format += "required=true"
+
+        repeatable = field.get("repeatable", False)
+        if repeatable:
+            if required:
+                format += " "
+            format += "repeatable=true"
+
+        input_type = field.get("input", {}).get("type")
+
+        if "date" == input_type:
+            if required:
+                format += " "
+            format += "type=date format=<dddd-mm-dd>"
+
+        elif "complex" == input_type:
+            json_array = json.loads(field.get("complexDefinition", "[]"))
+
+            if (len (json_array) > 0):
+                if required or repeatable:
+                    format += " "
+                format += "type=complex format=<"
+                first = True
+                for item in json_array:
+                    for key in item.keys():
+                        if not item.get(key).get("readonly"):
+                            # add field separator
+                            if first:
+                                first = False
+                            else:
+                                format += ";"
+                            # add field name
+                            field_name = item.get(key).get("name")
+                            format += field_name
+                            # add field type
+                            field_type = item.get(key).get("input-type", "text")
+                            if field_type == "text" or field_type == "autocomplete":
+                                format += ":text"
+                            if field_type == "dropdown":
+                                cv = item.get(key).get("value-pairs-name")
+                                if cv is not None:
+                                    values = self._get_vocabulary_values(cv)
+                                    if len(values) > 0:
+                                        format += ":enum(" + "|".join(values) + ")"
+
+                format += ">"
+        elif "dropdown" == input_type or "list" == input_type:
+            if controlled_vocabulary is not None:
+                values = self._get_vocabulary_values(controlled_vocabulary)
+                if len(values) > 0:
+                    if required or repeatable:
+                        format += " "
+                    format += "type=enum(" + "|".join(values) + ")"
+        else:
+            regex = field.get("input", {}).get("regex", "")
+            if regex.startswith("http"):
+                if required or repeatable:
+                    format += " "
+                format+= "type=URL"
+
+        format += "]"
+
+        return format
+
+    def _get_vocabulary_values(self, vocabulary_name):
+        values = []
+        url = f'{self.api_endpoint}/submission/vocabularies/{vocabulary_name}/entries'
+        r = self.dspaceClient.session.get(url, headers=self.dspaceClient.request_headers)
+        if r is not None and r.status_code == 200:
+            entries = r.json().get('_embedded', {}).get('entries', [])
+            for entry in entries:
+                value = entry.get('value')
+                if value is not None and len(value) > 0:
+                    values.append(value)
+        return values
+
+    def _get_clarin_licenses(self):
+        values = []
+        url = f'{self.api_endpoint}/core/clarinlicenses?size=1000'
+        r = self.dspaceClient.session.get(url, headers=self.dspaceClient.request_headers)
+        if r is not None and r.status_code == 200:
+            entries = r.json().get('_embedded', {}).get('clarinlicenses', [])
+            for entry in entries:
+                value = entry.get('name')
+                if value is not None and len(value) > 0:
+                    values.append(value)
+        return values
