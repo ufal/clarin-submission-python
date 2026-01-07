@@ -219,7 +219,7 @@ class SubmissionClient:
 
             csv_lines.append([]) # empty line
             csv_lines.append(['__section__', 'license'])
-            csv_lines.append(['granted[required=true type=boolean]', 'true'])
+            csv_lines.append(['granted[required=true type=enum(true|false)]', 'true'])
 
             clarin_licenses = self._get_clarin_licenses()
             if len(clarin_licenses) > 0:
