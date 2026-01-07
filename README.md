@@ -135,9 +135,9 @@ name[type=enum],<b>"GNU General Public Licence, version 3"</b>
 </pre>
 
 Note, here, only the following metadata values are defined: **dc.type, dc.title, dc.date.issued, dc.contributor.author, local.contact.person, local.sponsor, metashare.ResourceInfo#ContentInfo.detailedType** or **license.granted** and **clarin-license.name** where
-- **dc.type** (single) value is automatically pre-defined during metadata template generation
-- **dc.title** (single) value is defined by user
-- **dc.contributor.author** (list) values are defined by user
+- **dc.type** (single required) value is automatically pre-defined during metadata template generation. Also notice that dc.type value is of the **enum** type where the enum values are listed in the metadata description included in square brackets: **[required=true type=enum(corpus|lexicalConceptualResource|languageDescription|toolService)]**
+- **dc.title** (single required) value is defined by user
+- **dc.contributor.author** (repeatable) values are defined by user. Note that this medatata value is **required**, and **repeatable**, which means user must type one or multiple comma separated values. Also don't forget to use the parantheses when the value contains the comma character, e.g. "Emily, Smith Lion" (otherwise this will be resolved as two names in comma separated file).
 - **local.contact.person** and **local.sponsor** are complex field values defined by user (see that complex field values are separated by semicollon)
 - **metashare.ResourceInfo#ContentInfo.detailedType** and **metashare.ResourceInfo#ResourceComponentType#ToolServiceInfo.languageDependent** are values defined by user (see that these values are of enum type)
 - **license.granted** and **clarin-license.name** are pre-defined values during metadata template generation, but user can change those values (by selecting value from enum list)
