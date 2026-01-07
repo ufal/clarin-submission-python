@@ -34,7 +34,7 @@ def handle_failed_response(operation_name, response: Response):
 def parse_submission_payload_csv(file_path):
     operations = []
     with open(file_path, 'r') as file:
-        reader = csv.reader(file)
+        reader = csv.reader(file, delimiter=',', skipinitialspace=True)
         section_path = ''
         operation_map = {}
         for row in reader:
@@ -71,9 +71,15 @@ def parse_submission_payload_csv(file_path):
                 if operation_map.get(path) is None:
                     value = []
                     for num in range(1, len(row)):
-                        value.append({
-                            'value': row[num]
-                        })
+                        # handle textarea line breaks
+                        if row[0].__contains__("type=textarea"):
+                            value.append({
+                                'value': row[num].replace('\\n', '\n')
+                            })
+                        else:
+                            value.append({
+                                'value': row[num]
+                            })
                     operation = {
                         'op': 'add',
                         'path': path,
@@ -210,7 +216,7 @@ class SubmissionClient:
                                         if len(selectable_metadata) > 0:
                                             metadata_key = selectable_metadata[0].get("metadata")
                                             controlled_vocabulary = field.get("selectableMetadata")[0].get("controlledVocabulary", "")
-                                            value_format = self._get_format(field, controlled_vocabulary )
+                                            value_format = self._get_format(field, controlled_vocabulary)
                                             if metadata_key is not None:
                                                 if metadata_key == 'dc.type': # special handling for dc.type field
                                                     csv_lines.append([metadata_key + value_format, resource_type])
@@ -284,9 +290,14 @@ class SubmissionClient:
         input_type = field.get("input", {}).get("type")
 
         if "date" == input_type:
-            if required:
+            if required or repeatable:
                 format += " "
             format += "type=date format=<dddd-mm-dd>"
+
+        elif "textarea" == input_type:
+            if required or repeatable:
+                format += " "
+            format += "type=textarea"
 
         elif "complex" == input_type:
             json_array = json.loads(field.get("complexDefinition", "[]"))
